@@ -1,0 +1,27 @@
+[package]
+name = "fairyweb"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+argon2 = "0.4.1"
+axum = { version = "0.5.16", features = ["headers", "multipart", "ws"] }
+build_html = "2.1.1"
+dotenv = "0.15.0"
+futures = "0.3.24"
+jsonwebtoken = "8.1.1"
+lettre = "0.10.1"
+rand = "0.8.5"
+scrypt = "0.10.0"
+serde = { version = "1.0.145", features = ["derive"] }
+sqlx = { version = "0.6.2", features = ["mysql", "runtime-tokio-rustls", "time", "uuid"] }
+thiserror = "1.0.36"
+time = "0.3.14"
+tokio = { version = "1.21.1", features = ["full"] }
+tower = { version = "0.4.13", features = ["util", "filter", "timeout"] }
+tower-cookies = "0.7.0"
+tower-http = { version = "0.3.4", features = ["full"] }
+tracing = "0.1.36"
+tracing-subscriber = { version = "0.3.15", features = ["env-filter"] }
