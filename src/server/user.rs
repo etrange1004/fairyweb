@@ -230,7 +230,7 @@ async fn send_password(ctx: Extension<ApiContext>, Form(input): Form<LoginUser>)
             // send email....
             let smtp_server = "smtp-relay.gmail.com";
             let smtp_username = "etrange1004@gmail.com";
-            let smtp_password = "48158272930581rkd";
+            let smtp_password = "11111111111111111111";
             let smtp_port = 587u16;
             let mut email = Message::builder()
                 .from("천사대장요정 <daijangfairy@fairyholdings.io>".parse().unwrap())

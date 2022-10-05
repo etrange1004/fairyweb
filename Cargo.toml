@@ -11,10 +11,8 @@ axum = { version = "0.5.16", features = ["headers", "multipart", "ws"] }
 build_html = "2.1.1"
 dotenv = "0.15.0"
 futures = "0.3.24"
-jsonwebtoken = "8.1.1"
 lettre = "0.10.1"
 rand = "0.8.5"
-scrypt = "0.10.0"
 serde = { version = "1.0.145", features = ["derive"] }
 sqlx = { version = "0.6.2", features = ["mysql", "runtime-tokio-rustls", "time", "uuid"] }
 thiserror = "1.0.36"

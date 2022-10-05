@@ -27,6 +27,9 @@ create table board (
     date datetime not null default now(),
     hit int unsigned not null default 0
 );
+
+/* 아래부터는 테스트 SQL문이라 실행하지마세요 ㅅ0ㅅn
+   Do not execute the following SQL statements as they are test SQL statements.*/
 create table user (
 	id_bin binary(16) not null primary key,
     id_text varchar(36) generated always as
@@ -51,14 +54,6 @@ insert into user (id_bin, name, email, pw, date, permit, bio, pimg)
 values (UUID_TO_BIN(UUID()), 'uncleoppa', 'uncleoppafairy@hotmail.com', '0000', now(), 8, 'fairy from sangdodong', '');
 
 select * from user;
-
-CREATE TABLE OrderDetails(
-   OrderId BINARY(16) PRIMARY KEY,
-   ProductName VARCHAR(100) NOT NULL,
-   Price DECIMAL(10, 2) NOT NULL,
-   ExpectedDelivery DATE NOT NULL
-);
-
 select last_insert_id();
 select * from user order by date;
 select * from board order by date desc;
