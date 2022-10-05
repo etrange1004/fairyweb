@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 use axum::{
-    extract::{Extension, Form, FromRequest, RequestParts, Query, Multipart},
-    handler::Handler,
-    http::{self, header::{self, HeaderMap, HeaderValue}, Uri, Method, Request, StatusCode},
-    response::{AppendHeaders, Html, IntoResponse, Redirect, Response},
+    extract::{Extension, Form, Query, Multipart},
+    http::StatusCode,
+    response::{Html, IntoResponse, Redirect},
     Router,
     routing::{get, post},
 };
@@ -140,7 +139,7 @@ async fn board_list_from_get(ctx: Extension<ApiContext>, pagination: Option<Quer
                 .with_raw(raw_str_dbrec).with_raw(raw_str_pagectrl))
         );
     let resp_page = HtmlPage::new()
-        .with_style(style::board_css.to_string()).with_container(container).to_html_string();
+        .with_style(style::BOARD_CSS.to_string()).with_container(container).to_html_string();
 
     (StatusCode::OK, Html(resp_page))
 }
@@ -176,7 +175,7 @@ async fn board_write_from_get(ctx: Extension<ApiContext>, cookies: Cookies) -> i
             .with_raw(raw_str_wform)
         );
     let resp_page = HtmlPage::new()
-        .with_style(style::board_css.to_string()).with_container(container).to_html_string();
+        .with_style(style::BOARD_CSS.to_string()).with_container(container).to_html_string();
 
     (StatusCode::OK, Html(resp_page))    
 }
@@ -191,6 +190,7 @@ async fn board_write_from_post(ctx: Extension<ApiContext>, mut multipart: Multip
             continue;
         };
         // stream_to_file(&file_name, field).await?;
+        // ADD TO FUNCTION IN NEXT VERSION.
     }    
     sqlx::query!("insert into board (title, content, id, name, password) values(?, ?, ?, ?, ?)",
         form_data.get::<String>(&"title".to_string()).unwrap(), 
@@ -272,7 +272,7 @@ async fn board_view_from_get(ctx: Extension<ApiContext>, cookies: Cookies, conte
             .with_raw(raw_str_content)
         );
     let resp_page = HtmlPage::new()
-        .with_style(style::board_css.to_string()).with_container(container).to_html_string();
+        .with_style(style::BOARD_CSS.to_string()).with_container(container).to_html_string();
     sqlx::query!("update board set hit = ? where number = ?", row.hit + 1, number).execute(&ctx.db).await.unwrap();
     (StatusCode::OK, Html(resp_page))    
 }
@@ -312,7 +312,7 @@ async fn board_edit_from_get(ctx: Extension<ApiContext>, contentinfo: Option<Que
             .with_raw(raw_str_eform)
         );
     let resp_page = HtmlPage::new()
-        .with_style(style::board_css.to_string()).with_container(container).to_html_string();
+        .with_style(style::BOARD_CSS.to_string()).with_container(container).to_html_string();
 
     (StatusCode::OK, Html(resp_page))    
 }
@@ -350,7 +350,7 @@ async fn board_view_from_post(ctx: Extension<ApiContext>, Form(input): Form<Comm
 
     Ok(Redirect::to(&format!("HOME_URL/view?number={}&page_no={}", parent, page_no).replace("HOME_URL", ctx.config.home_url.as_str())))
 }
-async fn board_search_from_post(ctx: Extension<ApiContext>, cookies: Cookies, Form(input): Form<SearchInfo>) -> impl IntoResponse {
+async fn board_search_from_post(ctx: Extension<ApiContext>, Form(input): Form<SearchInfo>) -> impl IntoResponse {
     let mut current_page = input.page_no.unwrap_or(1); if current_page <= 0 { current_page = 1; }
     let mut per_page = input.per_page.unwrap_or(5); if per_page > 100 { per_page = 100; }
     let keyword = format!("%{}%", input.keyword.unwrap());
@@ -440,7 +440,7 @@ async fn board_search_from_post(ctx: Extension<ApiContext>, cookies: Cookies, Fo
                 .with_raw(raw_str_dbrec).with_raw(raw_str_pagectrl))
         );
     let resp_page = HtmlPage::new()
-        .with_style(style::board_css.to_string()).with_container(container).to_html_string();
+        .with_style(style::BOARD_CSS.to_string()).with_container(container).to_html_string();
 
     (StatusCode::OK, Html(resp_page))   
 }

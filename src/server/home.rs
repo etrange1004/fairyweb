@@ -3,7 +3,7 @@ use axum::{
     http::StatusCode,
     response::{Html, IntoResponse},
     Router, 
-    routing::get, Extension,
+    routing::get,
 };
 
 pub fn router() -> Router {

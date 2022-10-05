@@ -1,17 +1,13 @@
-use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use axum::{
-    extract::{ws::{Message, WebSocket, WebSocketUpgrade}, TypedHeader},
-    headers::UserAgent,
-    http::{self, header::{self, HeaderMap, HeaderValue}, Uri, StatusCode, Request, Method},
-    response::{AppendHeaders, Html, IntoResponse, Redirect, Response}, 
+    extract::ws::{Message, WebSocket, WebSocketUpgrade},
+    http::StatusCode,
+    response::{Html, IntoResponse}, 
     Router,
     routing::{get}, Extension,
 };
 use futures::{StreamExt, SinkExt};
-use tokio::sync::broadcast;
-use tower_cookies::Cookies;
 use build_html::{*, Html as OtherHtml};
 
 use super::{ChatState, ApiContext, style};
@@ -127,7 +123,7 @@ async fn chat_start(ctx: Extension<ApiContext>) -> impl IntoResponse {
         )
         .with_raw(chatroom_rawstr.replace("HOME_URL", ctx.config.home_url.replace("http://", "ws://").as_str()));
     let resp_page = HtmlPage::new()
-        .with_style(style::board_css.to_string()).with_container(container).to_html_string();
+        .with_style(style::BOARD_CSS.to_string()).with_container(container).to_html_string();
 
     (StatusCode::OK, Html(resp_page))
 }

@@ -1,4 +1,4 @@
-pub const login_css: &str = "@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100;300;400;500;700;900&display=swap');
+pub const LOGIN_CSS: &str = "@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100;300;400;500;700;900&display=swap');
 * {
     font-family: 'Noto Sans KR', sans-serif;
 }
@@ -46,7 +46,7 @@ submit에는 자동으로 border-box가 적용이 된다 */
 .submit-btn:hover {
     box-shadow: 2px 4px 5px rgba(0,0,0,0.5);
 }";
-pub const board_css: &str = "
+pub const BOARD_CSS: &str = "
 @media (max-width: 1000px) {
     .board_wrap {
         width: 100%;

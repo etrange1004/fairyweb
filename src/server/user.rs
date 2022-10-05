@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
 use axum::{
-    extract::{Extension, Form, FromRequest, RequestParts, Query, Multipart},
-    handler::Handler,
-    http::{StatusCode, Extensions},
-    response::{Html, IntoResponse, Response, Redirect},
+    extract::{Extension, Form, Query, Multipart},
+    http::StatusCode,
+    response::{Html, IntoResponse, Redirect},
     Router,
     routing::{get, post},
 };
@@ -12,8 +11,7 @@ use tower_cookies::{Cookie, Cookies};
 use build_html::{*, Html as BuildHtml};
 
 use lettre::{
-    Address, 
-    message::{Message, header, MultiPart as le_Multipart, SinglePart},
+    message::{Message, MultiPart as le_Multipart},
     transport::smtp::{
         authentication::{Credentials, Mechanism},
         PoolConfig,
@@ -22,7 +20,7 @@ use lettre::{
     Transport, 
 };
 
-use crate::server::{models, errors, ApiContext, style};
+use crate::server::{errors, ApiContext, style};
 use super::{models::{LoginUser, UpdateUser, UpdatePassword}, security::{hashed_password, verify_password}};
 
 pub fn router() -> Router {
@@ -46,7 +44,7 @@ async fn login_form(ctx: Extension<ApiContext>) -> impl IntoResponse {
             <div class=\"links\"><a href=\"HOME_URL/forget\">Do you forget your password?</a></div>
         </div>"
     ).replace("HOME_URL", ctx.config.home_url.as_str()));
-    let resp_page = HtmlPage::new().with_style(style::login_css.to_string())
+    let resp_page = HtmlPage::new().with_style(style::LOGIN_CSS.to_string())
         .with_container(Container::default().with_raw(login_form_str)).to_html_string();
     (StatusCode::OK, Html(resp_page))
 }
@@ -57,7 +55,7 @@ async fn login(ctx: Extension<ApiContext>, Form(input): Form<LoginUser>, cookies
             // response and give jwt, cookie ..................
             if verify_password(password, record.pw).await {
                 match cookies.get("userid") {
-                    Some(cookie) => {
+                    Some(_) => {
                         cookies.list().clear();
                     }
                     None => {}
@@ -100,7 +98,7 @@ async fn signin_form(ctx: Extension<ApiContext>) -> impl IntoResponse {
         .with_container(Container::default().with_attributes([("class", "board_write_wrap")])
             .with_raw(signin_form_str)
         );
-    let resp_page = HtmlPage::new().with_style(style::login_css.to_string())
+    let resp_page = HtmlPage::new().with_style(style::LOGIN_CSS.to_string())
         .with_container(container).to_html_string();
     (StatusCode::OK, Html(resp_page))
 }
@@ -168,7 +166,7 @@ async fn edit_user_form(ctx: Extension<ApiContext>, updateinfo: Option<Query<Upd
                 .with_container(Container::default().with_attributes([("class", "board_write_wrap")])
                     .with_raw(edit_user_form_str)
                 );
-            let resp_page = HtmlPage::new().with_style(style::login_css.to_string())
+            let resp_page = HtmlPage::new().with_style(style::LOGIN_CSS.to_string())
                 .with_container(container).to_html_string();
             Ok((StatusCode::OK, Html(resp_page)))
         }
@@ -199,7 +197,7 @@ async fn edit_user(ctx: Extension<ApiContext>, cookies: Cookies, mut multipart: 
     sqlx::query!("update user set email = ?, name = ?, bio = ? where id = ?", 
         email, username.clone(), bio, userid.clone()).execute(&ctx.db).await.unwrap();
     match cookies.get("userid") {
-        Some(cookie) => {
+        Some(_) => {
             cookies.list().clear();
         }
         None => {}
@@ -219,7 +217,7 @@ async fn forget_form() -> impl IntoResponse {
             </form>
         </div>"
     ));
-    let resp_page = HtmlPage::new().with_style(style::login_css.to_string())
+    let resp_page = HtmlPage::new().with_style(style::LOGIN_CSS.to_string())
         .with_container(Container::default().with_raw(forget_form_str)).to_html_string();
     (StatusCode::OK, Html(resp_page))    
 }
@@ -231,8 +229,8 @@ async fn send_password(ctx: Extension<ApiContext>, Form(input): Form<LoginUser>)
             let smtp_server = "smtp-relay.gmail.com";
             let smtp_username = "etrange1004@gmail.com";
             let smtp_password = "11111111111111111111";
-            let smtp_port = 587u16;
-            let mut email = Message::builder()
+            //let smtp_port = 587u16;
+            let email = Message::builder()
                 .from("천사대장요정 <daijangfairy@fairyholdings.io>".parse().unwrap())
                 .to(username.parse().unwrap())
                 .subject("Change password and verify it after click link below.")
@@ -270,7 +268,7 @@ async fn verify_email(ctx: Extension<ApiContext>, Form(input): Form<UpdatePasswo
     let id = input.id.unwrap(); let password = input.password.unwrap();
     let hashed_password = hashed_password(password).await;
     match sqlx::query!("update user set pw = ? where id = ?", hashed_password, id).execute(&ctx.db).await {
-        Ok(record) => return Ok((
+        Ok(_) => return Ok((
             StatusCode::OK, Html(
             format!("<script>alert(\"Success to verify email to change password.\");location.href=\"HOME_URL/login\";</script>")
             .replace("HOME_URL", ctx.config.home_url.as_str()))
