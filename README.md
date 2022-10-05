@@ -2,6 +2,8 @@
 
 This is a simple web board and web chat tool written in rust. As Rust libraries, Axum, Sqlx, Tokio, Tower, etc. were used. The html, css, and javascript files do not exist, and they are created in the code without reading the file and output directly to the client browser.
 
+이것은 Rust로 작성된 간단한 웹 보드 및 웹 채팅 도구입니다. Rust 라이브러리로는 Axum, Sqlx, Tokio, Tower 등이 사용되었습니다. html, css, javascript 파일은 존재하지 않으며 파일을 읽지 않고 코드에서 생성되어 클라이언트 브라우저에 직접 출력됩니다.
+
 # Getting started
 
 Compiling and running FairyWeb requires pre-work.
