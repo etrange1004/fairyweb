@@ -16,10 +16,12 @@ use tower_cookies::{CookieManagerLayer};
 use crate::config::Config;
 
 mod home;
+mod init;
 mod board;
 mod chat;
 mod errors;
 mod models;
+mod script;
 mod security;
 mod style;
 mod user;
@@ -36,7 +38,7 @@ struct ChatState {
 
 pub async fn start(config: Config, db: MySqlPool) -> Result<(), Box<dyn Error>> {
     let user_set = Mutex::new(HashSet::new());
-    let (tx, _rx) = broadcast::channel(200);
+    let (tx, _rx) = broadcast::channel(5000);
     let chatstate = Arc::new(ChatState { user_set, tx });
     let app = api_router()
     .layer(CookieManagerLayer::new())
@@ -69,6 +71,7 @@ pub async fn start(config: Config, db: MySqlPool) -> Result<(), Box<dyn Error>> 
 }
 fn api_router() -> Router {
     Router::new()
+        .merge(init::router())
         .merge(home::router())
         .merge(user::router())
         .merge(board::router())

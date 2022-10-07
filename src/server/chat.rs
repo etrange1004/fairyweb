@@ -5,7 +5,7 @@ use axum::{
     http::StatusCode,
     response::{Html, IntoResponse}, 
     Router,
-    routing::{get}, Extension,
+    routing::get, Extension,
 };
 use futures::{StreamExt, SinkExt};
 use build_html::{*, Html as OtherHtml};
@@ -54,7 +54,11 @@ async fn chat_socket(stream: WebSocket, state: Arc<ChatState>) {
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(Message::Text(text))) = receiver.next().await {
             if text.contains("/quit") { break; }
-            let _ = tx.send(format!("{} : {}", name, text));
+            if text.contains(" is typing...") {
+                let _ = tx.send(text);
+            } else {
+                let _ = tx.send(format!("{} : {}", name, text));
+            }
         }
     });
 
@@ -78,7 +82,7 @@ async fn chat_start(ctx: Extension<ApiContext>) -> impl IntoResponse {
                     <dl><dt>대화명</dt>
                     <dd><input type=\"text\" id=\"username\" placeholder=\"입력후 버튼 클릭\" required autocomplete=\"off\"></dd></dl>
                     <dl><dt>채팅 참여</dt>
-                    <dd><button type=\"button\" id=\"join-chat\">Join Chat</button></dd></dl>
+                    <dd><button type=\"button\" id=\"joinchat\">Join Chat</button></dd></dl>
                 </div>
                 <div class=\"title\"><dl><dt>메시지</dt>
                     <dd><input type=\"text\" id=\"input\" placeholder=\"채팅 메시지 입력\" required autocomplete=\"off\"></dd></dl>
@@ -86,34 +90,46 @@ async fn chat_start(ctx: Extension<ApiContext>) -> impl IntoResponse {
             </div>
         </div>
         <script>
-            const username = document.querySelector(\"#username\");
-            const join_btn = document.querySelector(\"#join-chat\");
-            const textarea = document.querySelector(\"#chat\");
-            const input = document.querySelector(\"#input\");
-            
-            join_btn.addEventListener(\"click\", function(e) {
-                this.disabled = true;
-                const websocket = new WebSocket(\"HOME_URL/chatsocket\");
-                websocket.onopen = function() {
-                    console.log(\"connection opened.\");
-                    websocket.send(username.value);
-                }
-                const btn = this;
-                websocket.onclose = function() {
-                    console.log(\"connection closed.\");
-                    btn.disabled = false;
-                }
-                websocket.onmessage = function(e) {
-                    console.log(\"received message: \" + e.data);
+        const username = document.querySelector(\"#username\");
+        const joinbtn = document.querySelector(\"#joinchat\");
+        const textarea = document.querySelector(\"#chat\");
+        const input = document.querySelector(\"#input\");
+
+        joinbtn.addEventListener(\"click\", function(e) {
+            if ( username.value == \"\" ) {
+                alert(\"대화명을 입력하세요! ^0^\");
+                return;
+            }
+            var chatuser = username.value;
+            this.disabled = true;
+            const websocket = new WebSocket(\"HOME_URL/chatsocket\");
+            websocket.onopen = function() {
+                console.log(\"connection opened.\");
+                websocket.send(username.value);
+            }
+            const btn = this;
+            websocket.onclose = function() {
+                console.log(\"connection closed.\");
+                btn.disabled = false;
+            }
+            websocket.onmessage = function(e) {
+                console.log(\"received message: \" + e.data);
+                if (e.data.includes(\" is typing...\")) {
+                    document.title = e.data;
+                } else {
                     textarea.value += e.data + \"\\r\\n\";
                 }
-                input.onkeydown = function(e) {
-                    if ( e.key == \"Enter\" ) {
-                        websocket.send(input.value);
-                        input.value = \"\";
-                    }
+            }
+            input.onkeydown = function(e) {
+                if ( e.key == \"Enter\" ) {
+                    websocket.send(input.value);
+                    input.value = \"\";
                 }
-            });
+                else {
+                    websocket.send(chatuser + \" is typing...\");
+                }
+            }
+        });
         </script>"
     );
     let container = Container::default().with_attributes([("class", "board_wrap")])
@@ -122,8 +138,7 @@ async fn chat_start(ctx: Extension<ApiContext>) -> impl IntoResponse {
             .with_paragraph("요정님, 즐거운 채팅 시간 되세요!")
         )
         .with_raw(chatroom_rawstr.replace("HOME_URL", ctx.config.home_url.replace("http://", "ws://").as_str()));
-    let resp_page = HtmlPage::new()
-        .with_style(style::BOARD_CSS.to_string()).with_container(container).to_html_string();
+    let resp_page = HtmlPage::new().with_style(style::BOARD_CSS.to_string()).with_container(container).to_html_string();
 
     (StatusCode::OK, Html(resp_page))
 }

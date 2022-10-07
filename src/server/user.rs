@@ -14,10 +14,9 @@ use lettre::{
     message::{Message, MultiPart as le_Multipart},
     transport::smtp::{
         authentication::{Credentials, Mechanism},
-        PoolConfig,
+        PoolConfig, response::Response,
     }, 
-    SmtpTransport,
-    Transport, 
+    SmtpTransport, Transport,
 };
 
 use crate::server::{errors, ApiContext, style};
@@ -44,7 +43,7 @@ async fn login_form(ctx: Extension<ApiContext>) -> impl IntoResponse {
             <div class=\"links\"><a href=\"HOME_URL/forget\">Do you forget your password?</a></div>
         </div>"
     ).replace("HOME_URL", ctx.config.home_url.as_str()));
-    let resp_page = HtmlPage::new().with_style(style::LOGIN_CSS.to_string())
+    let resp_page = HtmlPage::new().with_style(style::LOGIN_CSS.to_string()).with_style(style::BOARD_CSS.to_string())
         .with_container(Container::default().with_raw(login_form_str)).to_html_string();
     (StatusCode::OK, Html(resp_page))
 }
@@ -98,7 +97,7 @@ async fn signin_form(ctx: Extension<ApiContext>) -> impl IntoResponse {
         .with_container(Container::default().with_attributes([("class", "board_write_wrap")])
             .with_raw(signin_form_str)
         );
-    let resp_page = HtmlPage::new().with_style(style::LOGIN_CSS.to_string())
+    let resp_page = HtmlPage::new().with_style(style::BOARD_CSS.to_string())
         .with_container(container).to_html_string();
     (StatusCode::OK, Html(resp_page))
 }
@@ -166,7 +165,7 @@ async fn edit_user_form(ctx: Extension<ApiContext>, updateinfo: Option<Query<Upd
                 .with_container(Container::default().with_attributes([("class", "board_write_wrap")])
                     .with_raw(edit_user_form_str)
                 );
-            let resp_page = HtmlPage::new().with_style(style::LOGIN_CSS.to_string())
+            let resp_page = HtmlPage::new().with_style(style::BOARD_CSS.to_string())
                 .with_container(container).to_html_string();
             Ok((StatusCode::OK, Html(resp_page)))
         }
@@ -217,41 +216,44 @@ async fn forget_form() -> impl IntoResponse {
             </form>
         </div>"
     ));
-    let resp_page = HtmlPage::new().with_style(style::LOGIN_CSS.to_string())
+    let resp_page = HtmlPage::new().with_style(style::LOGIN_CSS.to_string()).with_style(style::BOARD_CSS.to_string())
         .with_container(Container::default().with_raw(forget_form_str)).to_html_string();
     (StatusCode::OK, Html(resp_page))    
 }
 async fn send_password(ctx: Extension<ApiContext>, Form(input): Form<LoginUser>) -> impl IntoResponse {
     let username = input.username.unwrap(); let password = input.password.unwrap();
+    let url = ctx.config.home_url.clone();
     match sqlx::query!("select id, name, email, pw from user where email = ?", username).fetch_one(&ctx.db).await {
         Ok(record) => {
-            // send email....
-            let smtp_server = "smtp-relay.gmail.com";
-            let smtp_username = "etrange1004@gmail.com";
-            let smtp_password = "11111111111111111111";
-            //let smtp_port = 587u16;
-            let email = Message::builder()
-                .from("천사대장요정 <daijangfairy@fairyholdings.io>".parse().unwrap())
-                .to(username.parse().unwrap())
-                .subject("Change password and verify it after click link below.")
-                .multipart(le_Multipart::alternative_plain_html(
-                    format!("To {} : Verify your email address to change password in fairyweb quest board.", record.name),
-                    format!(
-                        "<form action=\"HOME_URL/verifypw\" name=\"verifypw_form\" method=\"post\">
-                            <input type=\"hidden\" name=\"id\" value=\"{}\">
-                            <input type=\"hidden\" name=\"password\" value=\"{}\">
-                        </form>
-                        <p>Click link !!!<a href=\"javascript:verifypw_form.submit();\" target=\"_blank\">Verify^0^</a></p>",
-                        record.id, password
-                    ).replace("HOME_URL", ctx.config.home_url.as_str()),
-                )).unwrap();
-            let sender = SmtpTransport::starttls_relay(smtp_server)
-                .unwrap()
-                .credentials(Credentials::new(smtp_username.to_string(), smtp_password.to_string()))
-                .authentication(vec![Mechanism::Plain])
-                .pool_config(PoolConfig::new().max_size(20))
-                .build();
-            let result = sender.send(&email);
+            let result = tokio::task::spawn_blocking(move || -> Result<Response, lettre::transport::smtp::Error> {
+                // send email....
+                let smtp_server = "smtp-relay.gmail.com";
+                let smtp_username = "etrange1004@gmail.com";
+                let smtp_password = "11111111111111111111";
+                //let smtp_port = 587u16;
+                let email = Message::builder()
+                    .from("천사대장요정 <daijangfairy@fairyholdings.io>".parse().unwrap())
+                    .to(username.parse().unwrap())
+                    .subject("Change password and verify it after click link below.")
+                    .multipart(le_Multipart::alternative_plain_html(
+                        format!("To {} : Verify your email address to change password in fairyweb quest board.", record.name),
+                        format!(
+                            "<form action=\"HOME_URL/verifypw\" name=\"verifypw_form\" method=\"post\">
+                                <input type=\"hidden\" name=\"id\" value=\"{}\">
+                                <input type=\"hidden\" name=\"password\" value=\"{}\">
+                            </form>
+                            <p>Click link !!!<a href=\"javascript:verifypw_form.submit();\" target=\"_blank\">Verify^0^</a></p>",
+                            record.id, password
+                        ).replace("HOME_URL", url.clone().as_str()),
+                    )).unwrap();
+                let sender = SmtpTransport::starttls_relay(smtp_server)
+                    .unwrap()
+                    .credentials(Credentials::new(smtp_username.to_string(), smtp_password.to_string()))
+                    .authentication(vec![Mechanism::Plain])
+                    .pool_config(PoolConfig::new().max_size(20))
+                    .build();
+                sender.send(&email)
+            }).await.map_err(|_| errors::CustomError::SendVerifyEmailError).unwrap();
             match result {
                 Ok(_) => return Ok((
                     StatusCode::UNAUTHORIZED, Html(

@@ -8,6 +8,8 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 #[allow(unreachable_patterns)]
 pub enum CustomError {
+    #[error("admin id is 'admin' and password is '0000'.")]
+    AdminLoginError,
     #[error("user exists")]
     UserExistsError(String),
     #[error("user not exist")]
@@ -27,6 +29,12 @@ impl IntoResponse for CustomError {
     fn into_response(self) -> Response {        
         let home_url: String = std::env::var("HOME_URL").unwrap_or("http://localhost:8080".to_string());
         match self {
+            CustomError::AdminLoginError => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR, Html(
+                    format!("<script>alert(\"admin login error!!!\");location.href=\"{}/init\";</script>", home_url))
+                ).into_response();
+            }
             CustomError::UserExistsError(username) => {
                 return (
                     StatusCode::BAD_REQUEST, Html(

@@ -11,6 +11,8 @@ use build_html::{*, Html as OtherHtml};
 
 use crate::server::{ApiContext, style};
 
+use super::script::{EDIT_FORM_SCRIPT, COMMENT_FORM_SCRIPT, WRITE_FORM_SCRIPT};
+
 pub fn router() -> Router {
     Router::new()
         .route("/list", get(board_list_from_get))
@@ -160,7 +162,7 @@ async fn board_write_from_get(ctx: Extension<ApiContext>, cookies: Cookies) -> i
                 <div class=\"cont\"><textarea name=\"content\" placeholder=\"내용 입력\" required autocomplete=\"off\"></textarea></div>
             </div>
             <div class=\"bt_wrap\">
-                <a href=\"javascript:write_quest.submit();\" class=\"on\">등록</a>
+                <a href=\"javascript:write_quest_submit();\" class=\"on\">등록</a>
                 <a href=\"HOME_URL/list\">취소</a>
                 <input type=\"hidden\" name=\"id\" value=\"{}\">
             </div>
@@ -174,8 +176,8 @@ async fn board_write_from_get(ctx: Extension<ApiContext>, cookies: Cookies) -> i
         .with_container(Container::default().with_attributes([("class", "board_write_wrap")])
             .with_raw(raw_str_wform)
         );
-    let resp_page = HtmlPage::new()
-        .with_style(style::BOARD_CSS.to_string()).with_container(container).to_html_string();
+    let resp_page = HtmlPage::new().with_style(style::BOARD_CSS.to_string())
+        .with_script_literal(WRITE_FORM_SCRIPT.to_string()).with_container(container).to_html_string();
 
     (StatusCode::OK, Html(resp_page))    
 }
@@ -193,8 +195,8 @@ async fn board_write_from_post(ctx: Extension<ApiContext>, mut multipart: Multip
         // ADD TO FUNCTION IN NEXT VERSION.
     }    
     sqlx::query!("insert into board (title, content, id, name, password) values(?, ?, ?, ?, ?)",
-        form_data.get::<String>(&"title".to_string()).unwrap(), 
-        form_data.get::<String>(&"content".to_string()).unwrap(), 
+        form_data.get::<String>(&"title".to_string()).unwrap().replace("<", "[").replace(">", "]"), 
+        form_data.get::<String>(&"content".to_string()).unwrap().replace("<", "[").replace(">", "]").replace("\r\n", "<br>"), 
         form_data.get::<String>(&"id".to_string()).unwrap(), 
         form_data.get::<String>(&"name".to_string()).unwrap(), 
         form_data.get::<String>(&"password".to_string()).unwrap() ).execute(&ctx.db).await.unwrap();
@@ -244,7 +246,7 @@ async fn board_view_from_get(ctx: Extension<ApiContext>, cookies: Cookies, conte
             <div class=\"comment_write\">
                 <div class=\"comment\"><textarea name=\"content\" placeholder=\"댓글 입력\" required autocomplete=\"off\"></textarea></div>
                 <div class=\"info\">
-                    <dl><dt><div class=\"comment_bt_wrap\"><a href=\"javascript:write_comment.submit();\" class=\"on\">등록</a></div></dt></dl>
+                    <dl><dt><div class=\"comment_bt_wrap\"><a href=\"javascript:write_comment_submit();\" class=\"on\">등록</a></div></dt></dl>
                 </div>                                
             </div>
             <input type=\"hidden\" name=\"parent\" value=\"{}\"><input type=\"hidden\" name=\"page_no\" value=\"{}\">
@@ -271,8 +273,8 @@ async fn board_view_from_get(ctx: Extension<ApiContext>, cookies: Cookies, conte
         .with_container(Container::default().with_attributes([("class", "board_view_wrap")])
             .with_raw(raw_str_content)
         );
-    let resp_page = HtmlPage::new()
-        .with_style(style::BOARD_CSS.to_string()).with_container(container).to_html_string();
+    let resp_page = HtmlPage::new().with_style(style::BOARD_CSS.to_string())
+        .with_script_literal(COMMENT_FORM_SCRIPT.to_string()).with_container(container).to_html_string();
     sqlx::query!("update board set hit = ? where number = ?", row.hit + 1, number).execute(&ctx.db).await.unwrap();
     (StatusCode::OK, Html(resp_page))    
 }
@@ -295,13 +297,13 @@ async fn board_edit_from_get(ctx: Extension<ApiContext>, contentinfo: Option<Que
                 <div class=\"cont\"><textarea name=\"content\" placeholder=\"내용 입력\" required autocomplete=\"off\">{}</textarea></div>
             </div>
             <div class=\"bt_wrap\">
-                <a href=\"javascript:edit_quest.submit();\" class=\"on\">등록</a>
+                <a href=\"javascript:edit_quest_submit();\" class=\"on\">등록</a>
                 <a href=\"HOME_URL/view?number={}&page_no={}\">취소</a>
                 <input type=\"hidden\" name=\"id\" value=\"{}\">
                 <input type=\"hidden\" name=\"number\" value=\"{}\">
                 <input type=\"hidden\" name=\"page_no\" value=\"{}\">
             </div>
-        </form>", row.title, row.name, row.content, number, current_page, id, number, current_page 
+        </form>", row.title, row.name, row.content.replace("<br>", "\r\n"), number, current_page, id, number, current_page 
     ).replace("HOME_URL", ctx.config.home_url.as_str()));
     let container = Container::default().with_attributes([("class", "board_wrap")])
         .with_container(Container::default().with_attributes([("class", "board_title")])
@@ -311,8 +313,8 @@ async fn board_edit_from_get(ctx: Extension<ApiContext>, contentinfo: Option<Que
         .with_container(Container::default().with_attributes([("class", "board_write_wrap")])
             .with_raw(raw_str_eform)
         );
-    let resp_page = HtmlPage::new()
-        .with_style(style::BOARD_CSS.to_string()).with_container(container).to_html_string();
+    let resp_page = HtmlPage::new().with_style(style::BOARD_CSS.to_string())
+        .with_script_literal(EDIT_FORM_SCRIPT).with_container(container).to_html_string();
 
     (StatusCode::OK, Html(resp_page))    
 }
@@ -329,8 +331,8 @@ async fn board_edit_from_post(ctx: Extension<ApiContext>, mut multipart: Multipa
         // stream_to_file()...
     }
     sqlx::query!("update board set title = ?, content = ? where number = ?",
-        form_data.get::<String>(&"title".to_string()).unwrap(),
-        form_data.get::<String>(&"content".to_string()).unwrap(),
+        form_data.get::<String>(&"title".to_string()).unwrap().replace("<", "[").replace(">", "]"),
+        form_data.get::<String>(&"content".to_string()).unwrap().replace("<", "[").replace(">", "]").replace("\r\n", "<br>"),
         form_data.get::<String>(&"number".to_string()).unwrap()).execute(&ctx.db).await.unwrap();
     
     Ok(Redirect::to(&format!(
@@ -343,7 +345,7 @@ async fn board_view_from_post(ctx: Extension<ApiContext>, Form(input): Form<Comm
     let parent = input.parent.unwrap();
     let id = input.id.unwrap();
     let name = input.name.unwrap();
-    let content = input.content.unwrap();
+    let content = input.content.unwrap().replace("<", "[").replace(">", "]").replace("\r\n", "<br>");
     let page_no = input.page_no.unwrap();
     sqlx::query!("insert into comment(parent, id, name, content) values(?, ?, ?, ?)", parent, id, name, content)
         .execute(&ctx.db).await.unwrap();
