@@ -137,7 +137,7 @@ async fn chat_start(ctx: Extension<ApiContext>) -> impl IntoResponse {
             .with_raw(r#"<strong>요정들의 채팅방</strong>"#)
             .with_paragraph("요정님, 즐거운 채팅 시간 되세요!")
         )
-        .with_raw(chatroom_rawstr.replace("HOME_URL", ctx.config.home_url.replace("http://", "ws://").as_str()));
+        .with_raw(chatroom_rawstr.replace("HOME_URL", ctx.config.home_url.replace("https://", "ws://").as_str()));
     let resp_page = HtmlPage::new().with_style(style::BOARD_CSS.to_string()).with_container(container).to_html_string();
 
     (StatusCode::OK, Html(resp_page))

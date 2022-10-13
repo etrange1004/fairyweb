@@ -6,12 +6,12 @@ use std::error::Error;
 use axum::{
     error_handling::HandleErrorLayer,
     extract::Extension,
-    http::{StatusCode},
+    http::StatusCode,
     Router,
 };
 use tower::ServiceBuilder;
 use tower_http::{trace::{TraceLayer, DefaultMakeSpan}, add_extension::AddExtensionLayer};
-use tower_cookies::{CookieManagerLayer};
+use tower_cookies::CookieManagerLayer;
 
 use crate::config::Config;
 

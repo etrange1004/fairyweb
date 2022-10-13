@@ -11,17 +11,19 @@ Compiling and running FairyWeb requires pre-work.
 1. Requires installation of MySql 8.0.27 or higher.
 2. Create fairydb database and create user ID/password account with chachafairy / 0000. 
    (Please refer to the DATABASE_URL string in the .env file)
-3. Execute FairyBoard.sql to create user, comment, and board table.
-4. Compile and run the source file with cargo run.
-5. Enter http://localhost:8080/ in the browser address bar =ㅅ=
+3. Compile and run the source file with cargo run.
+4. Enter http://localhost:8080/ in the browser address input. =ㅅ=
+5. Enter admin / 0000 to migrate the database.
+6. Create an account at http://localhost:8080/signin, verify and log in.
 
 FairyWeb을 컴파일하고 실행하려면 사전작업이 필요합니다.
 
-1.  MySql 8.0.27 이상 버전의 설치가 필요함.
+1. MySql 8.0.27 이상 버전의 설치가 필요함.
 2. fairydb 데이터베이스를 생성하고 chachafairy / 0000로 사용자아이디 / 패스워드 계정을 생성함. (.env 파일의 DATABASE_URL 스트링을 참조하기 바람)
-3. FairyBoard.sql 을 실행해 user, comment, board table 을 생성해주세요.
-4. cargo run으로 소스파일을 컴파일하고 실행합니다.
-5. 크롬이나 파이어폭스 브라우저를 실행하고 주소 입력창에 http://localhost:8080/ 입력합니다 =ㅅ=
+3. cargo run으로 소스파일을 컴파일하고 실행합니다.
+4. 크롬이나 파이어폭스 브라우저를 실행하고 주소 입력창에 http://localhost:8080/init ur을 입력합니다 =ㅅ=
+5. admin / 0000 을 입력하여 데이터베이스를 마이그레이션합니다.
+6. http://localhost:8080/signin 에서 계정을 만들고 확인한 후 로그인합니다.
 
 ## Requirements
 MySQL 8.0.27 or higher

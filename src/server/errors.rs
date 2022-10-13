@@ -16,10 +16,14 @@ pub enum CustomError {
     UserNotExistError(String),
     #[error("invalid password")]
     InvalidPasswordError,
+    #[error("invalid password !!!")]
+    EditInvalidPasswordError((String, String)),
     #[error("error generating password hash")]
     GeneratingPasswordHashError,
     #[error("error verifying password hash")]
     VerifyingPasswordHashError,
+    #[error("profile picture file upload error")]
+    FileUploadError,
     #[error("failed to send email alert")]
     SendVerifyEmailError,
     #[error("Database Error")]
@@ -38,7 +42,7 @@ impl IntoResponse for CustomError {
             CustomError::UserExistsError(username) => {
                 return (
                     StatusCode::BAD_REQUEST, Html(
-                    format!("<script>alert(\"{} already exists!\");location.href=\"{}/login\";</script>", username, home_url))
+                    format!("<script>alert(\"{} already exists!\");location.href=\"{}/signin\";</script>", username, home_url))
                 ).into_response();
             }
             CustomError::UserNotExistError(username) => {
@@ -51,6 +55,12 @@ impl IntoResponse for CustomError {
                 return (
                     StatusCode::BAD_REQUEST, Html(
                     format!("<script>alert(\"invalid password !!!\");location.href=\"{}/login\";</script>", home_url))
+                ).into_response();
+            }
+            CustomError::EditInvalidPasswordError((no, id)) => {
+                return (
+                    StatusCode::BAD_REQUEST, Html(
+                    format!("<script>alert(\"invalid password !!!\");location.href=\"{}/edit?number={}&id={}&page_no=1\";</script>", home_url, no, id))
                 ).into_response();
             }
             CustomError::GeneratingPasswordHashError => {
@@ -69,6 +79,12 @@ impl IntoResponse for CustomError {
                         "<script>alert(\"Internal Server Error: {}\");location.href=\"{}/login\";</script>", 
                         self.to_string(), home_url
                     ))
+                ).into_response();
+            }
+            CustomError::FileUploadError => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR, Html(
+                    format!("<script>alert(\"{}\");location.href=\"{}/signin\";</script>", self.to_string(), home_url))
                 ).into_response();
             }
             CustomError::SendVerifyEmailError => {

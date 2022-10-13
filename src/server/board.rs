@@ -9,7 +9,7 @@ use axum::{
 use tower_cookies::Cookies;
 use build_html::{*, Html as OtherHtml};
 
-use crate::server::{ApiContext, style};
+use crate::server::{ApiContext, style, errors};
 
 use super::script::{EDIT_FORM_SCRIPT, COMMENT_FORM_SCRIPT, WRITE_FORM_SCRIPT};
 
@@ -183,24 +183,27 @@ async fn board_write_from_get(ctx: Extension<ApiContext>, cookies: Cookies) -> i
 }
 async fn board_write_from_post(ctx: Extension<ApiContext>, mut multipart: Multipart) -> Result<Redirect, (StatusCode, String)> {
     let mut form_data: HashMap<String, String> = HashMap::new();
-    while let Some(field) = multipart.next_field().await.unwrap() {
-        let file_name = if let Some(file_name) = field.file_name() {
+    let mut filename = String::new();
+    // password and number field should be first than file fields.
+    while let Some(field) = multipart.next_field().await.unwrap() {    
+        if let Some(file_name) = field.file_name() {
+            filename.clear(); // 여러파일 쌉가능.... =ㅅ=;;
             form_data.insert(field.name().unwrap().to_string(), file_name.to_string());
-            file_name.to_owned()
+            filename.push_str(file_name);
+            //stream_to_file(filename.as_str(), field).await.map_err(|_| errors::CustomError::FileUploadError).unwrap();
         } else {
-            form_data.insert(field.name().unwrap().to_string(), field.text().await.unwrap());
+            form_data.insert(field.name().unwrap().to_string(), field.text().await.unwrap());            
             continue;
-        };
-        // stream_to_file(&file_name, field).await?;
-        // ADD TO FUNCTION IN NEXT VERSION.
-    }    
+        }        
+    }
+    let mut tx = ctx.db.begin().await.unwrap();   
     sqlx::query!("insert into board (title, content, id, name, password) values(?, ?, ?, ?, ?)",
         form_data.get::<String>(&"title".to_string()).unwrap().replace("<", "[").replace(">", "]"), 
         form_data.get::<String>(&"content".to_string()).unwrap().replace("<", "[").replace(">", "]").replace("\r\n", "<br>"), 
         form_data.get::<String>(&"id".to_string()).unwrap(), 
         form_data.get::<String>(&"name".to_string()).unwrap(), 
-        form_data.get::<String>(&"password".to_string()).unwrap() ).execute(&ctx.db).await.unwrap();
-
+        form_data.get::<String>(&"password".to_string()).unwrap()).execute(&mut tx).await.unwrap();
+    tx.commit().await.unwrap();
     Ok(Redirect::to(&format!("{}/list?page_no=1&per_page=5", ctx.config.home_url)))
 }
 async fn board_view_from_get(ctx: Extension<ApiContext>, cookies: Cookies, contentinfo: Option<Query<ContentInfo>>) -> impl IntoResponse {
@@ -275,18 +278,23 @@ async fn board_view_from_get(ctx: Extension<ApiContext>, cookies: Cookies, conte
         );
     let resp_page = HtmlPage::new().with_style(style::BOARD_CSS.to_string())
         .with_script_literal(COMMENT_FORM_SCRIPT.to_string()).with_container(container).to_html_string();
-    sqlx::query!("update board set hit = ? where number = ?", row.hit + 1, number).execute(&ctx.db).await.unwrap();
+    let mut tx = ctx.db.begin().await.unwrap();
+    sqlx::query!("update board set hit = ? where number = ?", row.hit + 1, number).execute(&mut tx).await.unwrap();
+    tx.commit().await.unwrap();
     (StatusCode::OK, Html(resp_page))    
 }
 async fn board_edit_from_get(ctx: Extension<ApiContext>, contentinfo: Option<Query<ContentEdited>>) -> impl IntoResponse {
     let Query(contentinfo) = contentinfo.unwrap();
     let number = contentinfo.number.unwrap();
-    let current_page = contentinfo.page_no.unwrap();
+    let current_page = contentinfo.page_no.unwrap_or(1);
     let id = contentinfo.id.unwrap();
     let row = sqlx::query!("select title, content, name, password from board where number = ?", number).fetch_one(&ctx.db).await.unwrap();
     let mut raw_str_eform = String::new();
     raw_str_eform.push_str(&format!(
         "\n<form action=\"HOME_URL/edit\" method=\"post\" name=\"edit_quest\" enctype=\"multipart/form-data\">
+            <input type=\"hidden\" name=\"id\" value=\"{}\">
+            <input type=\"hidden\" name=\"number\" value=\"{}\">
+            <input type=\"hidden\" name=\"page_no\" value=\"{}\">
             <div class=\"board_write\">
                 <div class=\"title\"><dl><dt>제목</dt>
                     <dd><input type=\"text\" name=\"title\" placeholder=\"제목 입력\" value=\"{}\" required autocomplete=\"off\"></dd></dl></div>
@@ -299,11 +307,9 @@ async fn board_edit_from_get(ctx: Extension<ApiContext>, contentinfo: Option<Que
             <div class=\"bt_wrap\">
                 <a href=\"javascript:edit_quest_submit();\" class=\"on\">등록</a>
                 <a href=\"HOME_URL/view?number={}&page_no={}\">취소</a>
-                <input type=\"hidden\" name=\"id\" value=\"{}\">
-                <input type=\"hidden\" name=\"number\" value=\"{}\">
-                <input type=\"hidden\" name=\"page_no\" value=\"{}\">
+                
             </div>
-        </form>", row.title, row.name, row.content.replace("<br>", "\r\n"), number, current_page, id, number, current_page 
+        </form>", id, number, current_page, row.title, row.name, row.content.replace("<br>", "\r\n"), number, current_page 
     ).replace("HOME_URL", ctx.config.home_url.as_str()));
     let container = Container::default().with_attributes([("class", "board_wrap")])
         .with_container(Container::default().with_attributes([("class", "board_title")])
@@ -318,23 +324,36 @@ async fn board_edit_from_get(ctx: Extension<ApiContext>, contentinfo: Option<Que
 
     (StatusCode::OK, Html(resp_page))    
 }
-async fn board_edit_from_post(ctx: Extension<ApiContext>, mut multipart: Multipart) -> Result<Redirect, (StatusCode, String)> {
+async fn board_edit_from_post(ctx: Extension<ApiContext>, mut multipart: Multipart) -> Result<Redirect, errors::CustomError> {
     let mut form_data: HashMap<String, String> = HashMap::new();
-    while let Some(field) = multipart.next_field().await.unwrap() {
-        let file_name = if let Some(file_name) = field.file_name() {
+    let mut filename = String::new();
+    // password and number field should be first than file fields.
+    while let Some(field) = multipart.next_field().await.unwrap() {    
+        if let Some(file_name) = field.file_name() {
+            filename.clear(); // 여러파일 쌉가능.... =ㅅ=;;
             form_data.insert(field.name().unwrap().to_string(), file_name.to_string());
-            file_name.to_owned()
+            filename.push_str(file_name);
+            //stream_to_file(filename.as_str(), field).await.map_err(|_| errors::CustomError::FileUploadError).unwrap();
         } else {
             form_data.insert(field.name().unwrap().to_string(), field.text().await.unwrap());
+            if form_data.get::<String>(&"number".to_string()).is_some() && form_data.get::<String>(&"password".to_string()).is_some() {
+                let no = form_data.get::<String>(&"number".to_string()).unwrap().to_string();
+                let password = form_data.get::<String>(&"password".to_string()).unwrap().to_string();
+                let record = sqlx::query!("select id, password from board where number = ?", no).fetch_one(&ctx.db).await.unwrap(); 
+                tracing::debug!("****************************************number: {}, password:{}, db pw:{} ", no, password, record.password);
+                if record.password != password {
+                    return Err(errors::CustomError::EditInvalidPasswordError((no, record.id)));
+                }
+            }            
             continue;
-        };
-        // stream_to_file()...
+        }        
     }
+    let mut tx = ctx.db.begin().await.unwrap();
     sqlx::query!("update board set title = ?, content = ? where number = ?",
         form_data.get::<String>(&"title".to_string()).unwrap().replace("<", "[").replace(">", "]"),
         form_data.get::<String>(&"content".to_string()).unwrap().replace("<", "[").replace(">", "]").replace("\r\n", "<br>"),
-        form_data.get::<String>(&"number".to_string()).unwrap()).execute(&ctx.db).await.unwrap();
-    
+        form_data.get::<String>(&"number".to_string()).unwrap()).execute(&mut tx).await.unwrap();
+    tx.commit().await.unwrap();    
     Ok(Redirect::to(&format!(
         "HOME_URL/view?number={}&id={}&page_no={}",
         form_data.get::<String>(&"number".to_string()).unwrap(),
@@ -347,9 +366,10 @@ async fn board_view_from_post(ctx: Extension<ApiContext>, Form(input): Form<Comm
     let name = input.name.unwrap();
     let content = input.content.unwrap().replace("<", "[").replace(">", "]").replace("\r\n", "<br>");
     let page_no = input.page_no.unwrap();
+    let mut tx = ctx.db.begin().await.unwrap();
     sqlx::query!("insert into comment(parent, id, name, content) values(?, ?, ?, ?)", parent, id, name, content)
-        .execute(&ctx.db).await.unwrap();
-
+        .execute(&mut tx).await.unwrap();
+    tx.commit().await.unwrap();
     Ok(Redirect::to(&format!("HOME_URL/view?number={}&page_no={}", parent, page_no).replace("HOME_URL", ctx.config.home_url.as_str())))
 }
 async fn board_search_from_post(ctx: Extension<ApiContext>, Form(input): Form<SearchInfo>) -> impl IntoResponse {
