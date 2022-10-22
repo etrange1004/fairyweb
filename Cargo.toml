@@ -2,18 +2,22 @@
 name = "fairyweb"
 version = "0.1.0"
 edition = "2021"
+author = "UncleOppa Fairy"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 argon2 = "0.4.1"
 axum = { version = "0.5.16", features = ["headers", "multipart", "ws"] }
+axum-server = { version = "0.4.2", features = ["tls-rustls"] }
+axum-server-dual-protocol = "0.2.0"
 build_html = "2.1.1"
 dotenv = "0.15.0"
 futures = "0.3.24"
 html-escape = "0.2.11"
 lettre = "0.10.1"
 rand = "0.8.5"
+rcgen = "0.10.0"
 serde = { version = "1.0.145", features = ["derive"] }
 sqlx = { version = "0.6.2", features = ["mysql", "runtime-tokio-rustls", "time", "uuid"] }
 thiserror = "1.0.36"

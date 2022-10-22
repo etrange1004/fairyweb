@@ -3,12 +3,15 @@ use tokio::sync::broadcast;
 use std::sync::{Arc, Mutex};
 use std::collections::HashSet;
 use std::error::Error;
+use std::net::SocketAddr;
 use axum::{
-    error_handling::HandleErrorLayer,
-    extract::Extension,
-    http::StatusCode,
-    Router,
+    error_handling::HandleErrorLayer, extract::Extension, http::StatusCode, Router,
 };
+use axum_server::{
+    AddrIncomingConfig, Handle, HttpConfig, tls_rustls::RustlsConfig,
+};
+use axum_server_dual_protocol::ServerExt;
+
 use tower::ServiceBuilder;
 use tower_http::{trace::{TraceLayer, DefaultMakeSpan}, add_extension::AddExtensionLayer};
 use tower_cookies::CookieManagerLayer;
@@ -63,10 +66,20 @@ pub async fn start(config: Config, db: MySqlPool) -> Result<(), Box<dyn Error>> 
             .timeout(tokio::time::Duration::from_secs(10))
             .into_inner(),
     );
-    axum::Server::bind(&"0.0.0.0:8080".parse()?)
+
+    let cert = rcgen::generate_simple_self_signed(["UncleOppa".to_string(), "Fairy".to_string()]).unwrap();
+    let tls_config = RustlsConfig::from_der(vec![cert.serialize_der()?], cert.serialize_private_key_der()).await.unwrap();
+    let srv_addr_port = SocketAddr::from(([0, 0, 0, 0], 8080));
+    let http_cfg = HttpConfig::new().http1_only(true).http2_only(false).max_buf_size(8192).build();
+    let incoming_cfg = AddrIncomingConfig::new().tcp_nodelay(true).tcp_sleep_on_accept_errors(true).build();
+    
+    axum_server_dual_protocol::bind_dual_protocol(srv_addr_port, tls_config)
+        .addr_incoming_config(incoming_cfg)
+        .http_config(http_cfg)
+        .set_upgrade(true)        
         .serve(app.into_make_service())
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+        //.with_graceful_shutdown(shutdown_signal())
+        .await.unwrap();
     Ok(())
 }
 fn api_router() -> Router {
@@ -77,7 +90,9 @@ fn api_router() -> Router {
         .merge(board::router())
         .merge(chat::router())
 }
+/*
 async fn shutdown_signal() {
     tokio::signal::ctrl_c().await.expect("expect shutdown signal handler");
     tracing::debug!("**************************signal shutdown*********************************");
 }
+*/

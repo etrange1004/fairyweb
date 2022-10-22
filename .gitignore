@@ -1,5 +1,7 @@
 /target
 .vscode
+/examples
 /html
 /uploads
 updates.note
+Cargo.lock

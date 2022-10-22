@@ -31,7 +31,7 @@ pub enum CustomError {
 }
 impl IntoResponse for CustomError {
     fn into_response(self) -> Response {        
-        let home_url: String = std::env::var("HOME_URL").unwrap_or("http://localhost:8080".to_string());
+        let home_url: String = std::env::var("HOME_URL").unwrap_or("https://localhost:8080".to_string());
         match self {
             CustomError::AdminLoginError => {
                 return (
