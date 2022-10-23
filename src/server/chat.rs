@@ -95,6 +95,9 @@ async fn chat_start(ctx: Extension<ApiContext>) -> impl IntoResponse {
         const textarea = document.querySelector(\"#chat\");
         const input = document.querySelector(\"#input\");
 
+        var typing = false;
+        var timeout = undefined;
+
         joinbtn.addEventListener(\"click\", function(e) {
             if ( username.value == \"\" ) {
                 alert(\"대화명을 입력하세요! ^0^\");
@@ -122,11 +125,16 @@ async fn chat_start(ctx: Extension<ApiContext>) -> impl IntoResponse {
             }
             input.onkeydown = function(e) {
                 if ( e.key == \"Enter\" ) {
+                    clearTimeout(timeout);
+                    typingTimeout();
                     websocket.send(input.value);
                     input.value = \"\";
                 }
                 else {
+                    typing = true;
                     websocket.send(chatuser + \" is typing...\");
+                    clearTimeout(timeout);
+                    timeout = setTimeout(typingTimeout, 3000);
                 }
             }
         });

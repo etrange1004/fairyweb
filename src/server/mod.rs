@@ -8,7 +8,7 @@ use axum::{
     error_handling::HandleErrorLayer, extract::Extension, http::StatusCode, Router,
 };
 use axum_server::{
-    AddrIncomingConfig, Handle, HttpConfig, tls_rustls::RustlsConfig,
+    AddrIncomingConfig, HttpConfig, tls_rustls::RustlsConfig,
 };
 use axum_server_dual_protocol::ServerExt;
 
@@ -67,16 +67,18 @@ pub async fn start(config: Config, db: MySqlPool) -> Result<(), Box<dyn Error>> 
             .into_inner(),
     );
 
-    let cert = rcgen::generate_simple_self_signed(["UncleOppa".to_string(), "Fairy".to_string()]).unwrap();
-    let tls_config = RustlsConfig::from_der(vec![cert.serialize_der()?], cert.serialize_private_key_der()).await.unwrap();
+    //let cert = rcgen::generate_simple_self_signed([]).unwrap();
+    //let tls_config = RustlsConfig::from_der(vec![cert.serialize_der()?], cert.serialize_private_key_der()).await.unwrap();
+    let tls_config = RustlsConfig::from_pem_file("./certificate/cert.pem", "./certificate/key.pem").await.unwrap();
     let srv_addr_port = SocketAddr::from(([0, 0, 0, 0], 8080));
-    let http_cfg = HttpConfig::new().http1_only(true).http2_only(false).max_buf_size(8192).build();
+    let http_cfg = HttpConfig::new().http2_only(true).max_buf_size(8192).build();
     let incoming_cfg = AddrIncomingConfig::new().tcp_nodelay(true).tcp_sleep_on_accept_errors(true).build();
     
-    axum_server_dual_protocol::bind_dual_protocol(srv_addr_port, tls_config)
+    axum_server_dual_protocol::bind_dual_protocol(srv_addr_port, tls_config)  // http and https. websocket does not work in tls certificate.
         .addr_incoming_config(incoming_cfg)
         .http_config(http_cfg)
         .set_upgrade(true)        
+    //axum::Server::bind(srv_addr_port)  // only http 1.1. websocket does work.
         .serve(app.into_make_service())
         //.with_graceful_shutdown(shutdown_signal())
         .await.unwrap();

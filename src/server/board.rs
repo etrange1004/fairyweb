@@ -231,7 +231,7 @@ async fn board_view_from_get(ctx: Extension<ApiContext>, cookies: Cookies, conte
             </div>\n",  
         row.title, number, row.name, row.date, row.hit, row.content
     ));
-    let comment_recs = sqlx::query!("select name, content, date from comment where parent = ? order by date desc", number)
+    let comment_recs = sqlx::query!("select name, content, date from comment where parent = ? order by date asc", number)
         .fetch_all(&ctx.db)
         .await
         .unwrap();
